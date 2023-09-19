@@ -1,4 +1,5 @@
 const { hash, compare } = require("bcryptjs")
+const AppError = require("../utils/AppError")
 const knex = require("../database/knex")
 
 class UsersController {
@@ -16,7 +17,7 @@ class UsersController {
     await knex("users").insert({
       name,
       email,
-      hashedPassword,
+      password: hashedPassword,
       avatar
     })
 
@@ -24,10 +25,10 @@ class UsersController {
   }
 
   async update(request, response) {
-    const { name, email, password, old_password, avatar } = request.body
-    const { id } = request.params
+    const { name, email, password, old_password } = request.body
+    const user_id = request.user.id
 
-    const user = await knex("users").where({ id }).first()
+    const user = await knex("users").where({ id: user_id }).first()
 
     if(!user) {
       throw new AppError("Usuário não encontrado")
@@ -41,7 +42,6 @@ class UsersController {
 
     user.name = name ?? user.name
     user.email = email ?? user.email
-    user.avatar = avatar ?? user.avatar
 
     if(password && !old_password) {
       throw new AppError("Você informar a senha antiga para definir a nova senha")
@@ -57,12 +57,11 @@ class UsersController {
       user.password = await hash(password, 8)
     }
 
-    await knex("users").where(id)
+    await knex("users").where('id', '=', user_id)
       .update({
         name: user.name,
         email: user.email,
-        password: user.password,
-        avatar: user.avatar
+        password: user.password
       })
 
     return response.json()
